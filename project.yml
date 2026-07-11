@@ -1,6 +1,12 @@
 # XcodeGen project definition for Clipmunk.
 # Regenerate the .xcodeproj with:  xcodegen generate
 name: Clipmunk
+# Three configs: Debug (unsigned dev), Release (Developer ID + notarized DMG),
+# AppStore (sandboxed, Apple Distribution → TestFlight / Mac App Store).
+configs:
+  Debug: debug
+  Release: release
+  AppStore: release
 options:
   bundleIdPrefix: com.github.ngoldbla
   deploymentTarget:
@@ -108,6 +114,18 @@ targets:
           # Do NOT inject get-task-allow — Apple's notary service rejects it.
           CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
           OTHER_CODE_SIGN_FLAGS: "--timestamp"
+        # TestFlight / Mac App Store build: sandboxed, automatically signed.
+        # Archive with an App Store Connect API key (-allowProvisioningUpdates
+        # -authenticationKey…) so Xcode manages the profile and beta-reports-active
+        # entitlement; export re-signs with Apple Distribution. See scripts/testflight.sh.
+        AppStore:
+          CODE_SIGN_STYLE: Automatic
+          CODE_SIGN_ENTITLEMENTS: Clipmunk/Clipmunk-AppStore.entitlements
+          ENABLE_HARDENED_RUNTIME: NO
+          # Apple Silicon only (like the app itself): speech-swift's KokoroTTS
+          # uses Float16, which doesn't exist on x86_64 — a universal archive
+          # cannot compile. The App Store accepts arm64-only Mac apps.
+          ARCHS: arm64
 
   # Developer-only probe for the Marlin-2B video VLM (vision-aware moment-finder).
   # Loads Marlin (model_type qwen3_5 + Qwen3VLProcessor) via the *existing*

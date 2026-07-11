@@ -13,6 +13,7 @@ enum YtDlpManager {
 
     enum YtDlpError: LocalizedError {
         case notInstalled
+        case sandboxed
         case checksumUnavailable
         case checksumMismatch
         case downloadFailed(String)
@@ -20,11 +21,18 @@ enum YtDlpManager {
         var errorDescription: String? {
             switch self {
             case .notInstalled:        "yt-dlp isn't installed yet."
+            case .sandboxed:           "Downloading YouTube videos isn't available in this build of Clipmunk. Use the direct-download version from GitHub instead."
             case .checksumUnavailable: "Couldn't verify the yt-dlp download (no published checksum)."
             case .checksumMismatch:    "The yt-dlp download failed its checksum check and was discarded."
             case .downloadFailed(let m): "yt-dlp couldn't download that video: \(m)"
             }
         }
+    }
+
+    /// True in sandboxed (TestFlight / Mac App Store) builds, where spawning a
+    /// downloaded binary via `Process` is denied — the whole feature is disabled.
+    static var isSandboxed: Bool {
+        ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil
     }
 
     private static let releaseBase = "https://github.com/yt-dlp/yt-dlp/releases/latest/download"
@@ -40,6 +48,7 @@ enum YtDlpManager {
 
     /// A usable yt-dlp path: our installed copy, or one already on PATH.
     static func resolve() -> URL? {
+        guard !isSandboxed else { return nil }
         let fm = FileManager.default
         if fm.isExecutableFile(atPath: installedURL.path) { return installedURL }
         for path in ["/opt/homebrew/bin/yt-dlp", "/usr/local/bin/yt-dlp", "/usr/bin/yt-dlp"]
@@ -55,6 +64,7 @@ enum YtDlpManager {
     /// release's published SHA-256, and installs it executable to Application
     /// Support. Throws on any network or checksum failure (nothing is installed).
     static func install() async throws {
+        guard !isSandboxed else { throw YtDlpError.sandboxed }
         guard let binURL = URL(string: "\(releaseBase)/\(assetName)"),
               let sumsURL = URL(string: "\(releaseBase)/SHA2-256SUMS")
         else { throw YtDlpError.downloadFailed("bad release URL") }

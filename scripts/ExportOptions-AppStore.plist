@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- App Store Connect delivery (TestFlight + App Store). -->
+	<key>method</key>
+	<string>app-store-connect</string>
+	<key>teamID</key>
+	<string>XC6FN96MA8</string>
+	<key>signingStyle</key>
+	<string>automatic</string>
+	<!-- Upload straight from xcodebuild -exportArchive (no separate altool step). -->
+	<key>destination</key>
+	<string>upload</string>
+	<!-- Let App Store Connect bump CFBundleVersion to the next unique build number. -->
+	<key>manageAppVersionAndBuildNumber</key>
+	<true/>
+	<key>uploadSymbols</key>
+	<true/>
+</dict>
+</plist>

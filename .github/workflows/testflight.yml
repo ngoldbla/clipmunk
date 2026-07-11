@@ -1,0 +1,69 @@
+name: TestFlight
+
+# Builds the sandboxed AppStore configuration, signs it for the Mac App Store,
+# and uploads it to App Store Connect (TestFlight).
+# - workflow_dispatch: build + upload on demand.
+# - push tag tf-v*: same (kept separate from the DMG release's v* tags).
+#
+# Required repo secrets (beyond the existing HF_DOWNLOAD_TOKEN / APPLE_TEAM_ID):
+#   ASC_KEY_ID      App Store Connect API key id (App Manager or Admin role)
+#   ASC_ISSUER_ID   App Store Connect issuer id
+#   ASC_KEY_P8      contents of the AuthKey_<ASC_KEY_ID>.p8 file
+on:
+  push:
+    tags: ["tf-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testflight:
+    runs-on: macos-26
+    timeout-minutes: 120
+    env:
+      APP_NAME: Clipmunk
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: brew install xcodegen
+
+      - name: Ensure Metal Toolchain (Xcode 26 unbundles it; MLX needs it)
+        run: |
+          if ! xcodebuild -showComponent MetalToolchain 2>/dev/null | grep -q "installed"; then
+            xcodebuild -downloadComponent MetalToolchain
+          fi
+
+      - name: Install App Store Connect API key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.appstoreconnect/private_keys
+          printf '%s' "$ASC_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+      - name: Build, archive and upload to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          HF_DOWNLOAD_TOKEN: ${{ secrets.HF_DOWNLOAD_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Verify the embedded token grants Marlin-2B access before spending a
+          # 30-minute build on it (same guard as the DMG release).
+          if [ -n "${HF_DOWNLOAD_TOKEN:-}" ]; then
+            CODE="$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $HF_DOWNLOAD_TOKEN" \
+              'https://huggingface.co/junwatu/Marlin-2B-MLX-8bit/resolve/main/chat_template.jinja')"
+            [ "$CODE" = "200" ] || { echo "::error::HF_DOWNLOAD_TOKEN cannot access gated Marlin-2B (HTTP $CODE)"; exit 1; }
+          else
+            echo "::error::HF_DOWNLOAD_TOKEN not set — testers would hit a 401 on the mandatory Marlin-2B download"; exit 1
+          fi
+          bash scripts/testflight.sh
+
+      - name: Clean up API key
+        if: always()
+        run: rm -f ~/.appstoreconnect/private_keys/AuthKey_*.p8
