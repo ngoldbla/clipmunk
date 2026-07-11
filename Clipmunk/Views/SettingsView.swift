@@ -149,7 +149,8 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
                 if settings.youTubeIngestEnabled {
                     LabeledContent("yt-dlp") {
-                        Text(YtDlpManager.isAvailable ? "Installed" : "Installs on first use")
+                        Text(YtDlpManager.isSandboxed ? "Not available in this build"
+                             : YtDlpManager.isAvailable ? "Installed" : "Installs on first use")
                             .foregroundStyle(.secondary)
                     }
                 }

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- App Store / TestFlight builds must adopt the App Sandbox. -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<!-- Outbound HTTPS: Hugging Face model downloads, optional publishing. -->
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<!-- Videos arrive via drag-and-drop / open panel; shorts are exported via
+	     a save panel — user-selected covers every file path in the app. -->
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+</dict>
+</plist>

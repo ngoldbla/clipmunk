@@ -31,6 +31,10 @@
 	     where HFToken falls back to env / ~/.cache/huggingface/token. -->
 	<key>HFDownloadToken</key>
 	<string>$(HF_DOWNLOAD_TOKEN)</string>
+	<!-- Only standard HTTPS (exempt) encryption is used, so App Store Connect
+	     never needs a per-build export-compliance answer. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSSupportsAutomaticTermination</key>
