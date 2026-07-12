@@ -77,7 +77,14 @@ def build_appstore_pkg(build_number)
     derived_data_path: File.join(REPO, "build"),
     archive_path: ARCHIVE_PATH,
     output_directory: EXPORT_DIR,
-    export_options: File.join(REPO, "scripts", "ExportOptions-AppStore-local.plist"),
+    # gym maps the plist's `method` onto its own export_method enum, which still
+    # uses the legacy names — the Xcode-16/26 spelling "app-store-connect" (what
+    # scripts/ExportOptions-AppStore-local.plist carries for raw xcodebuild) is
+    # rejected. Let gym generate its own export options with a gym-legal method;
+    # it exports locally (no upload) and automatic signing re-signs with Apple
+    # Distribution via the -allowProvisioningUpdates + API-key args in xcargs.
+    export_method: "app-store",
+    export_team_id: "XC6FN96MA8",
     clean: false,
     xcargs: [
       "-scmProvider system",
