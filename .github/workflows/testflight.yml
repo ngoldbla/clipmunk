@@ -64,6 +64,7 @@ jobs:
           fi
           bash scripts/testflight.sh
 
+      # Scrub the API key from the runner whether the build passed or failed.
       - name: Clean up API key
         if: always()
         run: rm -f ~/.appstoreconnect/private_keys/AuthKey_*.p8
