@@ -2,8 +2,15 @@ name: TestFlight
 
 # Builds the sandboxed AppStore configuration, signs it for the Mac App Store,
 # and uploads it to App Store Connect (TestFlight).
-# - workflow_dispatch: build + upload on demand.
+# - push to main: auto-publish a fresh TestFlight build on every merge.
+# - workflow_dispatch: build + upload on demand (set validate_only=true for a
+#   signing/packaging dry run that does NOT consume a TestFlight build).
 # - push tag tf-v*: same (kept separate from the DMG release's v* tags).
+#
+# Build numbers are hands-off: ExportOptions-AppStore.plist has
+# manageAppVersionAndBuildNumber=true, so App Store Connect assigns the next
+# unique CFBundleVersion at upload time — nothing is bumped or committed back,
+# so a merge can never self-trigger a loop.
 #
 # Required repo secrets (beyond the existing HF_DOWNLOAD_TOKEN / APPLE_TEAM_ID):
 #   ASC_KEY_ID      App Store Connect API key id (App Manager or Admin role)
@@ -11,14 +18,37 @@ name: TestFlight
 #   ASC_KEY_P8      contents of the AuthKey_<ASC_KEY_ID>.p8 file
 on:
   push:
+    branches: ["main"]
     tags: ["tf-v*"]
+    # Doc-only merges shouldn't spend a ~1-2h signed build + a TestFlight slot.
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE"
+      - "NOTICE"
   workflow_dispatch:
+    inputs:
+      validate_only:
+        description: "Export + validate the package without uploading a TestFlight build"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
+# Serialize uploads so two merges landing close together can't race for a build
+# slot. cancel-in-progress:false lets an in-flight upload finish rather than
+# abandoning a half-delivered build.
+concurrency:
+  group: testflight-upload
+  cancel-in-progress: false
+
 jobs:
   testflight:
+    # Skip [skip ci] commits, and never run on a fork's push (it can't reach this
+    # repo's main, but the guard also keeps forks with their own secrets from
+    # uploading under this app record).
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') && github.repository_owner == 'ngoldbla' }}
     runs-on: macos-26
     timeout-minutes: 120
     env:
@@ -51,6 +81,9 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           HF_DOWNLOAD_TOKEN: ${{ secrets.HF_DOWNLOAD_TOKEN }}
+          # '1' only when a maintainer dispatches with validate_only=true; empty
+          # string on every push (merge) so real merges upload normally.
+          VALIDATE_ONLY: ${{ github.event.inputs.validate_only == 'true' && '1' || '0' }}
         run: |
           set -euo pipefail
           # Verify the embedded token grants Marlin-2B access before spending a
