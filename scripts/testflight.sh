@@ -52,10 +52,29 @@ codesign -d --entitlements :- "$ARCHIVE/Products/Applications/Clipmunk.app" 2>/d
   | grep -q 'com.apple.security.app-sandbox' \
   || { echo "error: app-sandbox entitlement missing from the signed app" >&2; exit 1; }
 
-# Re-sign with Apple Distribution + Mac App Store provisioning and upload.
-xcodebuild -exportArchive -archivePath "$ARCHIVE" \
-  -exportOptionsPlist scripts/ExportOptions-AppStore.plist \
-  -exportPath build/appstore-export \
-  -allowProvisioningUpdates "${AUTH_ARGS[@]}"
-
-echo "==> Uploaded. Watch processing in App Store Connect → TestFlight."
+# Re-sign with Apple Distribution + Mac App Store provisioning, then deliver.
+#
+# VALIDATE_ONLY=1 : export a .pkg locally (destination=export) and run
+#   `altool --validate-app`. Proves signing + packaging + ASC acceptance WITHOUT
+#   consuming a TestFlight build — the CI dry run before the first real upload.
+# default         : export with destination=upload, delivering straight to
+#   App Store Connect (TestFlight). manageAppVersionAndBuildNumber=true in the
+#   plist means ASC assigns the next unique build number, so nothing is bumped
+#   or committed here.
+if [ "${VALIDATE_ONLY:-0}" = "1" ]; then
+  xcodebuild -exportArchive -archivePath "$ARCHIVE" \
+    -exportOptionsPlist scripts/ExportOptions-AppStore-local.plist \
+    -exportPath build/appstore-export \
+    -allowProvisioningUpdates "${AUTH_ARGS[@]}"
+  PKG="$(find build/appstore-export -name '*.pkg' | head -n1)"
+  [ -n "$PKG" ] || { echo "error: no .pkg produced by export" >&2; exit 1; }
+  xcrun altool --validate-app -f "$PKG" -t macos \
+    --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+  echo "==> Validated $PKG — no TestFlight build consumed."
+else
+  xcodebuild -exportArchive -archivePath "$ARCHIVE" \
+    -exportOptionsPlist scripts/ExportOptions-AppStore.plist \
+    -exportPath build/appstore-export \
+    -allowProvisioningUpdates "${AUTH_ARGS[@]}"
+  echo "==> Uploaded. Watch processing in App Store Connect → TestFlight."
+fi
