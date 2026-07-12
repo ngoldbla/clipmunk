@@ -81,9 +81,9 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           HF_DOWNLOAD_TOKEN: ${{ secrets.HF_DOWNLOAD_TOKEN }}
-          # '1' only when a maintainer dispatches with validate_only=true; empty
-          # string on every push (merge) so real merges upload normally.
-          VALIDATE_ONLY: ${{ github.event.inputs.validate_only == 'true' && '1' || '0' }}
+          # 'validate' only when a maintainer dispatches with validate_only=true
+          # (export + ASC validate, no build slot); 'beta' on every push (merge).
+          LANE: ${{ github.event.inputs.validate_only == 'true' && 'validate' || 'beta' }}
         run: |
           set -euo pipefail
           # Verify the embedded token grants Marlin-2B access before spending a
@@ -95,7 +95,7 @@ jobs:
           else
             echo "::error::HF_DOWNLOAD_TOKEN not set — testers would hit a 401 on the mandatory Marlin-2B download"; exit 1
           fi
-          bash scripts/testflight.sh
+          fastlane mac "$LANE"
 
       # Scrub the API key from the runner whether the build passed or failed.
       - name: Clean up API key

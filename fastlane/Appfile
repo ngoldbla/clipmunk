@@ -1,0 +1,5 @@
+# Clipmunk — App Store Connect identifiers.
+# Auth is via an App Store Connect API key (see Fastfile `asc_api_key`), so no
+# Apple ID login / app-specific password is needed here.
+app_identifier("com.github.ngoldbla.Clipmunk")
+team_id("XC6FN96MA8") # Aquilops LLC (Developer Portal team)
